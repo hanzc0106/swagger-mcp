@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Sample Data Pool",
+    "title": "Sample Service",
     "version": "1.2.3"
   },
   "servers": [
@@ -10,11 +10,11 @@
     }
   ],
   "paths": {
-    "/api/wells": {
+    "/api/resources": {
       "get": {
-        "operationId": "listWells",
-        "tags": ["Well"],
-        "summary": "List wells",
+        "operationId": "listResources",
+        "tags": ["Resource"],
+        "summary": "List resources",
         "parameters": [
           {
             "name": "page",
@@ -32,7 +32,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Well"
+                    "$ref": "#/components/schemas/Resource"
                   }
                 }
               }
@@ -41,11 +41,11 @@
         }
       }
     },
-    "/api/wells/{id}": {
+    "/api/resources/{id}": {
       "post": {
-        "operationId": "updateWell",
-        "tags": ["Well"],
-        "summary": "Update well",
+        "operationId": "updateResource",
+        "tags": ["Resource"],
+        "summary": "Update resource",
         "parameters": [
           {
             "name": "id",
@@ -61,7 +61,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WellInput"
+                "$ref": "#/components/schemas/ResourceInput"
               }
             }
           }
@@ -76,7 +76,7 @@
   },
   "components": {
     "schemas": {
-      "Well": {
+      "Resource": {
         "type": "object",
         "properties": {
           "id": {
@@ -87,12 +87,12 @@
           }
         }
       },
-      "WellInput": {
+      "ResourceInput": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "example": "Well A"
+            "example": "Resource A"
           },
           "active": {
             "type": "boolean"

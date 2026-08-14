@@ -10,7 +10,7 @@
 - 每个业务项目拥有自己的 .swagger-mcp 配置和缓存。
 - 查询类工具只读本地缓存，不会自动联网更新。
 - refresh_service 和 refresh_all_services 是仅有的远程 Swagger 拉取入口。
-- 服务以稳定名称调用，例如 datapool、timeline，不需要重复提供 URL。
+- 服务以稳定名称调用，例如 service1、service2，不需要重复提供 URL。
 - 成功刷新后，服务配置中的 updatedAt 会记录缓存更新时间。
 
 ## 架构
@@ -24,8 +24,8 @@
   .swagger-mcp\
     config.json                           # 服务名称、URL 与更新时间
     cache\
-      datapool.openapi.json               # 本地 Swagger/OpenAPI 缓存
-      timeline.openapi.json
+      service1.openapi.json               # 本地 Swagger/OpenAPI 缓存
+      service2.openapi.json
 ~~~
 
 swagger-mcp 不属于业务项目源码。.swagger-mcp 则是该业务项目独有的运行时状态，不同项目可以有不同的服务清单、环境地址和缓存版本。
@@ -35,11 +35,19 @@ swagger-mcp 不属于业务项目源码。.swagger-mcp 则是该业务项目独�
 - Node.js 18 或更高版本
 - 支持 stdio MCP 的客户端，例如 Codex
 
-当前实现仅依赖 Node.js 内置模块，无需安装第三方依赖。
+当前实现仅依赖 Node.js 内置模块。
 
 ## 快速开始
 
-### 1. 获取并验证工具
+### 1. 安装 npm 包
+
+~~~powershell
+npm install -g @hanzc/swagger-mcp
+~~~
+
+从源码运行和参与开发的方式见开发与测试。
+
+### 从源码验证
 
 ~~~powershell
 git clone https://github.com/hanzc0106/swagger-mcp.git <your-path>/swagger-mcp
@@ -52,7 +60,7 @@ npm test
 以下命令会注册一个名为 swagger-local 的全局 stdio MCP。注册只声明工具本体，不绑定任何业务项目：
 
 ~~~powershell
-codex mcp add swagger-local -- node <installation-dir>/bin/swagger-mcp.js
+codex mcp add swagger-local -- swagger-mcp
 ~~~
 
 验证注册结果：
@@ -69,17 +77,25 @@ codex mcp list
 ~~~toml
 [mcp_servers.swagger-local]
 type = "stdio"
-command = "node"
-args = [
-  "<installation-dir>/bin/swagger-mcp.js"
-]
+command = "swagger-mcp"
+args = []
 ~~~
 
-业务项目是工具调用时的运行时上下文，而不是 Codex 全局 MCP 配置的一部分。一个已注册的 Swagger MCP 应可服务多个项目，各项目分别维护自己的 .swagger-mcp 目录。
+也可以使用 npx 启动固定版本，无需全局安装：
+
+~~~powershell
+codex mcp add swagger-local -- npx -y @hanzc/swagger-mcp@0.1.0
+~~~
+
+业务项目是工具调用时的运行时上下文，而不是 Codex 全局 MCP 配置的一部分。所有项目相关 tools 都要求提供绝对路径 workspace，因此一个 MCP 注册可服务多个项目，各项目分别维护自己的 .swagger-mcp 目录。
 
 ### 3. 初始化业务项目
 
-在 Agent 中调用 init_project。它将创建：
+在 Agent 中调用 init_project 并提供业务项目的绝对路径。它将创建：
+
+~~~text
+init_project(workspace = "<workspace>")
+~~~
 
 ~~~text
 <workspace>/.swagger-mcp/
@@ -95,21 +111,22 @@ args = [
 
 ~~~text
 add_service(
-  service = "datapool",
-  url = "http://example.com/datapool/swagger/v1/swagger.json"
+  workspace = "<workspace>",
+  service = "service1",
+  url = "https://example.com/openapi.json"
 )
 ~~~
 
 再明确刷新缓存：
 
 ~~~text
-refresh_service(service = "datapool")
+refresh_service(workspace = "<workspace>", service = "service1")
 ~~~
 
 刷新成功后即可离线搜索：
 
 ~~~text
-search_operations(service = "datapool", keyword = "well")
+search_operations(workspace = "<workspace>", service = "service1", keyword = "resource")
 ~~~
 
 ## 项目配置
@@ -119,12 +136,12 @@ search_operations(service = "datapool", keyword = "well")
 ~~~json
 {
   "services": {
-    "datapool": {
-      "url": "http://example.com/datapool/swagger/v1/swagger.json",
+    "service1": {
+      "url": "https://example.com/openapi.json",
       "updatedAt": "2026-08-14T08:30:00.000Z"
     },
-    "timeline": {
-      "url": "http://example.com/timeline/swagger/v1/swagger.json",
+    "service2": {
+      "url": "https://example.com/openapi.json",
       "updatedAt": null
     }
   }
@@ -144,6 +161,8 @@ search_operations(service = "datapool", keyword = "well")
 ~~~
 
 ## MCP Tools
+
+除 initialize 与 tools/list 协议请求外，以下每个 tool 都必须传入 workspace。它是业务项目的绝对路径，工具会在该路径下读写 .swagger-mcp。
 
 ### 项目与服务管理
 
@@ -173,14 +192,34 @@ search_operations(service = "datapool", keyword = "well")
 | get_schema | 否 | 读取并展开一个 OpenAPI schema 或 Swagger 2 definitions schema。 |
 | generate_request_example | 否 | 为指定接口生成 curl、axios 或 fetch 请求示例。 |
 
-如果未找到本地缓存，查询工具会报错并提示先执行 refresh_service，但不会自行请求远程地址。
+当 search_operations 没有匹配项，或 get_operation、get_schema、generate_request_example 找不到所需定义时，工具会返回缓存状态和 refreshHint，而不会自动请求远程地址。
+
+~~~json
+{
+  "cache": {
+    "hasCache": true,
+    "updatedAt": "2026-08-14T08:30:00.000Z"
+  },
+  "refreshHint": {
+    "recommended": true,
+    "reason": "No cached operation matched the query.",
+    "tool": "refresh_service",
+    "arguments": {
+      "workspace": "<workspace>",
+      "service": "service1"
+    }
+  }
+}
+~~~
+
+refreshHint 表示“本地定义可能过旧或不完整”，由 Agent 根据当前任务决定是否调用 refresh_service。它不是自动刷新机制。
 
 ## 常见调用
 
 ### 查看当前缓存状态
 
 ~~~text
-list_services()
+list_services(workspace = "<workspace>")
 ~~~
 
 结果会包含服务 URL、updatedAt、是否存在缓存、缓存文件位置、文档标题、OpenAPI 版本和接口数量。
@@ -189,10 +228,11 @@ list_services()
 
 ~~~text
 search_operations(
-  service = "datapool",
-  keyword = "well",
+  workspace = "<workspace>",
+  service = "service1",
+  keyword = "resource",
   method = "GET",
-  tag = "Well",
+  tag = "Resource",
   limit = 20
 )
 ~~~
@@ -203,8 +243,9 @@ keyword 会匹配路径、HTTP 方法、operationId、摘要、描述和 Tag。
 
 ~~~text
 get_operation(
-  service = "datapool",
-  operationId = "listWells"
+  workspace = "<workspace>",
+  service = "service1",
+  operationId = "listResources"
 )
 ~~~
 
@@ -212,9 +253,10 @@ get_operation(
 
 ~~~text
 get_operation(
-  service = "datapool",
+  workspace = "<workspace>",
+  service = "service1",
   method = "GET",
-  path = "/api/wells"
+  path = "/api/resources"
 )
 ~~~
 
@@ -224,8 +266,9 @@ get_operation(
 
 ~~~text
 generate_request_example(
-  service = "datapool",
-  operationId = "updateWell",
+  workspace = "<workspace>",
+  service = "service1",
+  operationId = "updateResource",
   format = "axios",
   baseUrl = "https://api.example.com"
 )
@@ -269,7 +312,7 @@ npm test
 可直接以 stdio 方式运行服务：
 
 ~~~powershell
-node <installation-dir>/bin/swagger-mcp.js --workspace <workspace>
+node <installation-dir>/bin/swagger-mcp.js
 ~~~
 
 服务使用 JSON-RPC over stdio。初始化后通过 tools/list 声明能力，并通过 tools/call 执行具体工具。
@@ -305,4 +348,4 @@ tests/
 - 支持两份 Swagger 文档的接口差异比较
 - 支持本地私有认证配置
 - 增加更多 MCP 客户端注册示例
-- 发布为可安装的 npm 包
+- 发布 GitHub Release 与 npm provenance

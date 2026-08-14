@@ -1,18 +1,43 @@
 {
-  "name": "swagger-mcp",
+  "name": "@hanzc/swagger-mcp",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "description": "A lightweight MCP server for project-local Swagger/OpenAPI cache and lookup.",
+  "description": "An MCP server for project-local Swagger/OpenAPI caching and offline API lookup.",
   "bin": {
     "swagger-mcp": "./bin/swagger-mcp.js"
   },
   "scripts": {
     "start": "node ./bin/swagger-mcp.js",
-    "test": "node ./tests/run-tests.js"
+    "test": "node ./tests/run-tests.js",
+    "prepublishOnly": "npm test"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "swagger",
+    "openapi",
+    "codex",
+    "api"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hanzc0106/swagger-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hanzc0106/swagger-mcp/issues"
+  },
+  "homepage": "https://github.com/hanzc0106/swagger-mcp#readme",
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=18"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }
