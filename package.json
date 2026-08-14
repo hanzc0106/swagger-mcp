@@ -1,0 +1,18 @@
+{
+  "name": "swagger-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A lightweight MCP server for project-local Swagger/OpenAPI cache and lookup.",
+  "bin": {
+    "swagger-mcp": "./bin/swagger-mcp.js"
+  },
+  "scripts": {
+    "start": "node ./bin/swagger-mcp.js",
+    "test": "node ./tests/run-tests.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
